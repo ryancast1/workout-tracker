@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
+import { getLastSession, saveSession } from "@/lib/db";
+
 
 type WorkoutLog = {
   date: string; // YYYY-MM-DD
@@ -106,24 +108,19 @@ export default function WorkoutPage() {
 
     setStatus("idle");
 
-    // last session
-    const raw = localStorage.getItem(storageKey);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as WorkoutLog;
-        setLastCompact(parsed.compact || null);
-        setLastDate(parsed.date || null);
-        setLastNotes(parsed.notes || null);
-      } catch {
-        setLastCompact(null);
-        setLastDate(null);
-        setLastNotes(null);
-      }
-    } else {
-      setLastCompact(null);
-      setLastDate(null);
-      setLastNotes(null);
-    }
+    // last session (via helper)
+(async () => {
+  const last = await getLastSession(slugStr);
+  if (last) {
+    setLastCompact(last.compact || null);
+    setLastDate(last.performed_on || null);
+    setLastNotes(last.notes || null);
+  } else {
+    setLastCompact(null);
+    setLastDate(null);
+    setLastNotes(null);
+  }
+})();
 
     // draft
     const draftRaw = localStorage.getItem(draftKey);
@@ -237,7 +234,13 @@ export default function WorkoutPage() {
       notes: draft.notes.trim() ? draft.notes.trim() : null,
     };
 
-    localStorage.setItem(storageKey, JSON.stringify(payload));
+    saveSession({
+  workout: slugStr,
+  performed_on: payload.date,
+  notes: payload.notes,
+  compact: payload.compact,
+  payload: payload, // keep everything for now
+});
 
     setLastCompact(payload.compact || null);
     setLastDate(payload.date);
