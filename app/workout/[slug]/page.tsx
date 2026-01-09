@@ -35,6 +35,18 @@ function isoToMDY(iso: string): string {
   return `${m}/${d}/${y}`;
 }
 
+const TARGETS: Record<string, string> = {
+  "bicep-curls": "8–15",
+  "shoulder-press": "6–10",
+  "chest-press": "8–12",
+  "lat-pulldown": "8–12",
+  "row": "8–12",
+  "leg-press": "10–15",
+  "leg-curl": "10–15",
+  "lateral-raise": "12–20",
+  // push-ups handled on its own page; other is freeform
+};
+
 function titleizeSlug(slug: string) {
   return slug
     .split("-")
@@ -290,6 +302,10 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
 
   const title = titleizeSlug(slugStr);
 
+  const target = TARGETS[slugStr] ?? null;
+
+
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
@@ -305,6 +321,13 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
               {title}
             </h1>
           )}
+
+          {!isOther && target && (
+  <div className="mt-1 text-center text-sm text-white/60">
+    {target} Reps
+
+  </div>
+)}
 
           {lastCompact && lastDate && (
             <div className="mt-2 text-center">
