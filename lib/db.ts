@@ -93,3 +93,15 @@ export async function deleteSession(id: string) {
   const { error } = await supabase.from("workout_sessions").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function listSessionsSince(startISO: string) {
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("performed_on,workout_slug")
+    .gte("performed_on", startISO)
+    .neq("workout_slug", "other")
+    .order("performed_on", { ascending: false });
+
+  if (error) throw error;
+  return (data ?? []) as { performed_on: string; workout_slug: string }[];
+}
