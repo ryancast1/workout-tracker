@@ -102,46 +102,63 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
     localStorage.setItem(draftKey, JSON.stringify(next));
   }
 
-  // Load last session + load draft whenever slug changes
   useEffect(() => {
-    if (!slugStr) return;
+  if (!slugStr) return;
 
-    setStatus("idle");
+  let cancelled = false;
+  setStatus("idle");
 
-    // last session (via helper)
-(async () => {
-  const last = await getLastSession(slugStr);
-  if (last) {
-    setLastCompact(last.compact || null);
-    setLastDate(last.performed_on || null);
-    setLastNotes(last.notes || null);
-  } else {
-    setLastCompact(null);
-    setLastDate(null);
-    setLastNotes(null);
-  }
-})();
+  (async () => {
+    // 1) Load draft FIRST (sync)
+    let nextDraft: WorkoutDraft = emptyDraft;
 
-    // draft
     const draftRaw = localStorage.getItem(draftKey);
     if (draftRaw) {
       try {
         const parsed = JSON.parse(draftRaw) as WorkoutDraft;
-        const shaped: WorkoutDraft = {
+        nextDraft = {
           otherName: parsed.otherName ?? "",
           weightText: parsed.weightText ?? "",
           notes: parsed.notes ?? "",
           repsText: Array.from({ length: setCount }, (_, i) => parsed.repsText?.[i] ?? ""),
         };
-        setDraft(shaped);
-        return;
       } catch {
-        // fall through to empty
+        nextDraft = emptyDraft;
       }
     }
 
-    setDraft(emptyDraft);
-  }, [slugStr, storageKey, draftKey, setCount, emptyDraft]);
+    if (cancelled) return;
+    setDraft(nextDraft);
+
+    // 2) Load last session SECOND (async)
+    const last = await getLastSession(slugStr);
+    if (cancelled) return;
+
+    if (last) {
+      setLastCompact(last.compact || null);
+      setLastDate(last.performed_on || null);
+      setLastNotes(last.notes || null);
+
+      // 3) Prefill weight only if draft has none
+      const lastWeight =
+        (last as any)?.weight ??
+        (last as any)?.payload?.weight ??
+        null;
+
+      if ((nextDraft.weightText ?? "").trim() === "" && lastWeight != null) {
+        setDraft((prev) => ({ ...prev, weightText: String(Math.floor(Number(lastWeight))) }));
+      }
+    } else {
+      setLastCompact(null);
+      setLastDate(null);
+      setLastNotes(null);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+  };
+}, [slugStr, draftKey, setCount, emptyDraft]);
 
   const parsedOtherName = useMemo(() => draft.otherName.trim(), [draft.otherName]);
 
