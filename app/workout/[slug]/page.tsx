@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { getLastSession, saveSession } from "@/lib/db";
+import { supabase } from "@/lib/supabaseClient";
 
 
 type WorkoutLog = {
@@ -65,7 +66,7 @@ export default function WorkoutPage() {
   );
 
   const [draft, setDraft] = useState<WorkoutDraft>(emptyDraft);
-  const [status, setStatus] = useState<"idle" | "saved">("idle");
+const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   const [lastCompact, setLastCompact] = useState<string | null>(null);
   const [lastDate, setLastDate] = useState<string | null>(null);
@@ -234,24 +235,31 @@ export default function WorkoutPage() {
       notes: draft.notes.trim() ? draft.notes.trim() : null,
     };
 
-   await saveSession({
-  workout_slug: slugStr,
-  workout_name: isOther ? parsedOtherName : null,
-  performed_on: payload.date,
-  weight: parsedWeight,
-  sets: parsedReps,
-  compact,
-  notes: payload.notes,
-});
+  try {
+  setStatus("saving");
 
+  await saveSession({
+    workout_slug: slugStr,
+    workout_name: isOther ? parsedOtherName : null,
+    performed_on: payload.date,
+    weight: parsedWeight,
+    sets: parsedReps,
+    compact,
+    notes: payload.notes,
+  });
 
-    setLastCompact(payload.compact || null);
-    setLastDate(payload.date);
-    setLastNotes(payload.notes);
-    setStatus("saved");
+  setLastCompact(payload.compact || null);
+  setLastDate(payload.date);
+  setLastNotes(payload.notes);
+  setStatus("saved");
 
-    localStorage.removeItem(draftKey);
-    setDraft(emptyDraft);
+  localStorage.removeItem(draftKey);
+  setDraft(emptyDraft);
+} catch (e: any) {
+  console.error("SAVE FAILED:", e);
+  setStatus("error");
+  alert(`Save failed: ${e?.message ?? JSON.stringify(e)}`);
+}
   }
 
   if (!slugStr) {
@@ -350,6 +358,8 @@ export default function WorkoutPage() {
             </label>
           </div>
 
+          
+
           <button
             onClick={logWorkout}
             disabled={!canLog}
@@ -363,6 +373,16 @@ export default function WorkoutPage() {
           </div>
         </section>
       </div>
+      <button
+  onClick={async () => {
+    await supabase.auth.signOut();
+    alert("Signed out");
+  }}
+  className="mt-6 w-full h-12 rounded-xl border border-white/10 bg-black/20 text-white/70"
+>
+  Sign out (test)
+</button>
     </main>
   );
 }
+
