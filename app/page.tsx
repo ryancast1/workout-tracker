@@ -1,56 +1,126 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 
-const STORAGE_KEY = "pushup_count_v1";
+type PushupLog = {
+  date: string; // YYYY-MM-DD
+  sets: Array<number | null>; // length 5
+};
+
+const STORAGE_KEY = "pushups_log_v1";
+
+function todayISODate(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function Home() {
-  const [count, setCount] = useState(0);
+  const [setsText, setSetsText] = useState<string[]>(["", "", "", "", ""]);
+  const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<"idle" | "saved">("idle");
 
-  // Load saved count on first load
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved !== null) setCount(Number(saved));
-  }, []);
+  const parsedSets = useMemo(() => {
+    return setsText.map((t) => {
+      const trimmed = t.trim();
+      if (trimmed === "") return null;
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0) return null;
+      return Math.floor(n);
+    });
+  }, [setsText]);
 
-  // Save whenever count changes
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(count));
-  }, [count]);
+  const canLog = useMemo(() => parsedSets.some((n) => n !== null), [parsedSets]);
+
+  function setSetValue(idx: number, value: string) {
+    // digits only, max 3 chars (you said ~2 digits, but allow 3 just in case)
+    const cleaned = value.replace(/[^\d]/g, "").slice(0, 3);
+    setSetsText((prev) => prev.map((v, i) => (i === idx ? cleaned : v)));
+    setStatus("idle");
+  }
+
+  function logWorkout() {
+    if (!canLog) return;
+
+    const payload: PushupLog = {
+      date: todayISODate(),
+      sets: parsedSets,
+    };
+
+    // For now: save ONLY the latest log (we’ll expand to a list later)
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...payload,
+        notes: notes.trim() || null,
+      })
+    );
+
+    setStatus("saved");
+  }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
-        <h1 className="text-2xl font-semibold">Workout Tracker</h1>
-        <p className="mt-1 text-sm text-white/60">Push-up Counter</p>
+    <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
+      <div className="mx-auto w-full max-w-md">
+        <header className="mb-6">
+          <h1 className="text-3xl font-semibold tracking-tight">Push Ups</h1>
+          <p className="mt-1 text-sm text-white/60">
+            Enter reps for up to 5 sets.
+          </p>
+        </header>
 
-        <div className="mt-8 text-7xl font-bold tabular-nums">{count}</div>
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
+          <div className="grid grid-cols-2 gap-3">
+            {setsText.map((val, i) => (
+              <label key={i} className="block">
+                <span className="mb-1 block text-xs text-white/60">
+                  Set {i + 1}
+                </span>
+                <input
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="0"
+                  value={val}
+                  onChange={(e) => setSetValue(i, e.target.value)}
+                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none ring-0 placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+                />
+              </label>
+            ))}
+          </div>
 
-        <div className="mt-8 grid grid-cols-2 gap-3">
+          <div className="mt-5">
+            <label className="block">
+              <span className="mb-1 block text-xs text-white/60">Notes</span>
+              <textarea
+                value={notes}
+                onChange={(e) => {
+                  setNotes(e.target.value);
+                  setStatus("idle");
+                }}
+                rows={2}
+                placeholder="Anything notable…"
+                className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+              />
+            </label>
+          </div>
+
           <button
-            className="rounded-xl bg-white text-black py-4 text-lg font-semibold active:scale-[0.99]"
-            onClick={() => setCount((c) => c + 1)}
+            onClick={logWorkout}
+            disabled={!canLog}
+            className="mt-6 h-14 w-full rounded-xl bg-white text-lg font-semibold text-black active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-black/60"
           >
-            +1
+            Log Workout
           </button>
 
-          <button
-            className="rounded-xl bg-white/10 py-4 text-lg font-semibold active:scale-[0.99]"
-            onClick={() => setCount((c) => Math.max(0, c - 1))}
-          >
-            -1
-          </button>
+          <div className="mt-3 text-center text-xs text-white/50">
+            {status === "saved" ? "Saved ✓" : " "}
+          </div>
+        </section>
 
-          <button
-            className="col-span-2 rounded-xl bg-red-500/80 py-4 text-lg font-semibold active:scale-[0.99]"
-            onClick={() => setCount(0)}
-          >
-            Reset
-          </button>
-        </div>
-
-        <p className="mt-6 text-xs text-white/50">
-          Saved automatically on this device.
+        <p className="mt-6 text-center text-xs text-white/40">
+          (For now this saves the latest entry locally on this device.)
         </p>
       </div>
     </main>
