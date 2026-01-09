@@ -105,3 +105,18 @@ export async function listSessionsSince(startISO: string) {
   if (error) throw error;
   return (data ?? []) as { performed_on: string; workout_slug: string }[];
 }
+
+export async function listWeightSeries(slug: string, startISO: string) {
+  const { data, error } = await supabase
+    .from("workout_sessions")
+    .select("performed_on,weight")
+    .eq("workout_slug", slug)
+    .gte("performed_on", startISO)
+    .not("weight", "is", null)
+    .order("performed_on", { ascending: true });
+
+  if (error) throw error;
+
+  return (data ?? []) as { performed_on: string; weight: number }[];
+}
+
