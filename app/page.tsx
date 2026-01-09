@@ -1,161 +1,39 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
-
-type PushupLog = {
-  date: string; // YYYY-MM-DD
-  sets: Array<number | null>; // length 5
-  sets_compact: string; // "10-10-10"
-  notes: string | null;
-};
-
-const STORAGE_KEY = "pushups_log_v1";
-
-function todayISODate(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function isoToMDY(iso: string): string {
-  // iso: YYYY-MM-DD -> M/D/YYYY (no leading zeros)
-  const [y, m, d] = iso.split("-").map((x) => Number(x));
-  if (!y || !m || !d) return iso;
-  return `${m}/${d}/${y}`;
-}
+const workouts = [
+  { name: "Push Ups", href: "/push-ups" },
+  { name: "Bicep Curls", href: "/workout/bicep-curls" },
+  { name: "Shoulder Press", href: "/workout/shoulder-press" },
+  { name: "Chest Press", href: "/workout/chest-press" },
+  { name: "Lat Pulldown", href: "/workout/lat-pulldown" },
+  { name: "Row", href: "/workout/row" },
+  { name: "Leg Press", href: "/workout/leg-press" },
+  { name: "Leg Curl", href: "/workout/leg-curl" },
+  { name: "Lateral Raise", href: "/workout/lateral-raise" },
+  { name: "Other", href: "/workout/other" },
+];
 
 export default function Home() {
-  const [setsText, setSetsText] = useState<string[]>(["", "", "", "", ""]);
-  const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState<"idle" | "saved">("idle");
-
-  const [lastCompact, setLastCompact] = useState<string | null>(null);
-  const [lastDate, setLastDate] = useState<string | null>(null);
-  const [lastNotes, setLastNotes] = useState<string | null>(null);
-
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as PushupLog;
-      setLastCompact(parsed.sets_compact || null);
-      setLastDate(parsed.date || null);
-      setLastNotes(parsed.notes || null);
-    } catch {
-      // ignore
-    }
-  }, []);
-
-  const parsedSets = useMemo(() => {
-    return setsText.map((t) => {
-      const trimmed = t.trim();
-      if (trimmed === "") return null;
-      const n = Number(trimmed);
-      if (!Number.isFinite(n) || n < 0) return null;
-      return Math.floor(n);
-    });
-  }, [setsText]);
-
-  const compactSets = useMemo(() => {
-    const filled = parsedSets.filter((n): n is number => n !== null);
-    return filled.map(String).join("-");
-  }, [parsedSets]);
-
-  const canLog = compactSets.length > 0;
-
-  function setSetValue(idx: number, value: string) {
-    const cleaned = value.replace(/[^\d]/g, "").slice(0, 3);
-    setSetsText((prev) => prev.map((v, i) => (i === idx ? cleaned : v)));
-    setStatus("idle");
-  }
-
-  function logWorkout() {
-    if (!canLog) return;
-
-    const payload: PushupLog = {
-      date: todayISODate(),
-      sets: parsedSets,
-      sets_compact: compactSets, // skips empties automatically
-      notes: notes.trim() ? notes.trim() : null,
-    };
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-
-    setLastCompact(payload.sets_compact);
-    setLastDate(payload.date);
-    setLastNotes(payload.notes);
-
-    setStatus("saved");
-  }
-
   return (
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">Push Ups</h1>
-
-          {lastCompact && lastDate && (
-            <div className="mt-2">
-              <div className="text-sm text-white/70">
-                <span className="text-white/60">Last Session: </span>
-                <span className="font-semibold text-white">{lastCompact}</span>{" "}
-                <span className="text-white/60">{isoToMDY(lastDate)}</span>
-              </div>
-
-              {lastNotes && (
-                <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
-                  {lastNotes}
-                </div>
-              )}
-            </div>
-          )}
+          <h1 className="text-3xl font-semibold tracking-tight">
+            Workout Tracker
+          </h1>
         </header>
 
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-          <div className="grid grid-cols-2 gap-3">
-            {setsText.map((val, i) => (
-              <label key={i} className="block">
-                <span className="mb-1 block text-xs text-white/60">
-                  Set {i + 1}
-                </span>
-                <input
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={val}
-                  onChange={(e) => setSetValue(i, e.target.value)}
-                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
-                />
-              </label>
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+<div className="grid grid-cols-2 gap-3">
+              {workouts.map((w) => (
+              <Link
+                key={w.href}
+                href={w.href}
+className="flex h-16 items-center justify-center rounded-xl border border-white/10 bg-black/30 px-3 text-center text-sm font-semibold text-white/90 active:scale-[0.99]"
+              >
+                {w.name}
+              </Link>
             ))}
-          </div>
-
-          <div className="mt-5">
-            <label className="block">
-              <span className="mb-1 block text-xs text-white/60">Notes</span>
-              <textarea
-                value={notes}
-                onChange={(e) => {
-                  setNotes(e.target.value);
-                  setStatus("idle");
-                }}
-                rows={2}
-                className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base outline-none focus:border-white/20 focus:bg-black/40"
-              />
-            </label>
-          </div>
-
-          <button
-            onClick={logWorkout}
-            disabled={!canLog}
-            className="mt-6 h-14 w-full rounded-xl bg-white text-lg font-semibold text-black active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-black/60"
-          >
-            Log Workout
-          </button>
-
-          <div className="mt-3 text-center text-xs text-white/50">
-            {status === "saved" ? "Saved ✓" : " "}
           </div>
         </section>
       </div>
