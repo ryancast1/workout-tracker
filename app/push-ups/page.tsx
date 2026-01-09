@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type PushupLog = {
   date: string; // YYYY-MM-DD
-  sets: Array<number | null>; // length 5
+  sets: Array<number | null>; // length 6
   sets_compact: string; // "10-10-10"
   notes: string | null;
 };
@@ -20,14 +20,13 @@ function todayISODate(): string {
 }
 
 function isoToMDY(iso: string): string {
-  // iso: YYYY-MM-DD -> M/D/YYYY (no leading zeros)
   const [y, m, d] = iso.split("-").map((x) => Number(x));
   if (!y || !m || !d) return iso;
   return `${m}/${d}/${y}`;
 }
 
-export default function Home() {
-  const [setsText, setSetsText] = useState<string[]>(["", "", "", "", ""]);
+export default function PushUpsPage() {
+  const [setsText, setSetsText] = useState<string[]>(["", "", "", "", "", ""]);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"idle" | "saved">("idle");
 
@@ -77,7 +76,7 @@ export default function Home() {
     const payload: PushupLog = {
       date: todayISODate(),
       sets: parsedSets,
-      sets_compact: compactSets, // skips empties automatically
+      sets_compact: compactSets,
       notes: notes.trim() ? notes.trim() : null,
     };
 
@@ -94,30 +93,30 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">Push Ups</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-center">Push Ups</h1>
 
           {lastCompact && lastDate && (
-            <div className="mt-2">
-              <div className="text-sm text-white/70">
-                <span className="text-white/60">Last Session: </span>
-                <span className="font-semibold text-white">{lastCompact}</span>{" "}
-                <span className="text-white/60">{isoToMDY(lastDate)}</span>
-              </div>
+  <div className="mt-2 text-center">
+    <div className="text-sm text-white/70">
+      <span className="text-white/60">Last Session: </span>
+      <span className="font-semibold text-white">{lastCompact}</span>{" "}
+      <span className="text-white/60">{isoToMDY(lastDate)}</span>
+    </div>
 
-              {lastNotes && (
-                <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
-                  {lastNotes}
-                </div>
-              )}
-            </div>
-          )}
+    {lastNotes && (
+      <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
+        {lastNotes}
+      </div>
+    )}
+  </div>
+)}
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
           <div className="grid grid-cols-2 gap-3">
             {setsText.map((val, i) => (
               <label key={i} className="block">
-                <span className="mb-1 block text-xs text-white/60">
+                <span className="mb-1 block text-center text-xs text-white/60">
                   Set {i + 1}
                 </span>
                 <input
@@ -125,7 +124,7 @@ export default function Home() {
                   pattern="[0-9]*"
                   value={val}
                   onChange={(e) => setSetValue(i, e.target.value)}
-                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
                 />
               </label>
             ))}
@@ -133,7 +132,9 @@ export default function Home() {
 
           <div className="mt-5">
             <label className="block">
-              <span className="mb-1 block text-xs text-white/60">Notes</span>
+              <span className="mb-1 block text-center text-xs text-white/60">
+                Notes
+              </span>
               <textarea
                 value={notes}
                 onChange={(e) => {

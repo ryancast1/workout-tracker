@@ -44,7 +44,7 @@ export default function WorkoutPage() {
 
   const storageKey = slugStr ? `workout_log_${slugStr}_v1` : "workout_log__v1";
 
-  const [otherName, setOtherName] = useState(""); // only used for "other"
+  const [otherName, setOtherName] = useState("");
   const [weightText, setWeightText] = useState("");
   const [repsText, setRepsText] = useState<string[]>(
     Array.from({ length: setCount }, () => "")
@@ -56,14 +56,12 @@ export default function WorkoutPage() {
   const [lastDate, setLastDate] = useState<string | null>(null);
   const [lastNotes, setLastNotes] = useState<string | null>(null);
 
-  // If setCount changes (leg press), re-shape reps inputs
   useEffect(() => {
     setRepsText((prev) =>
       Array.from({ length: setCount }, (_, i) => prev[i] ?? "")
     );
   }, [setCount]);
 
-  // Load last session
   useEffect(() => {
     if (!slugStr) return;
     const raw = localStorage.getItem(storageKey);
@@ -116,7 +114,6 @@ export default function WorkoutPage() {
       return `${namePart}`;
     }
 
-    // Standard: "Weight - rep/rep/rep"
     if (weightPart && repsPart) return `${weightPart} - ${repsPart}`;
     if (weightPart && !repsPart) return `${weightPart} -`;
     if (!weightPart && repsPart) return `- ${repsPart}`;
@@ -167,7 +164,7 @@ export default function WorkoutPage() {
     return (
       <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
         <div className="mx-auto w-full max-w-md">
-          <h1 className="text-2xl font-semibold">Workout</h1>
+          <h1 className="text-2xl font-semibold text-center">Workout</h1>
         </div>
       </main>
     );
@@ -186,15 +183,16 @@ export default function WorkoutPage() {
                 setOtherName(e.target.value);
                 setStatus("idle");
               }}
-              placeholder=""
-              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-2xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
+              className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-2xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
             />
           ) : (
-            <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-center">
+              {title}
+            </h1>
           )}
 
           {lastCompact && lastDate && (
-            <div className="mt-2">
+            <div className="mt-2 text-center">
               <div className="text-sm text-white/70">
                 <span className="text-white/60">Last Session: </span>
                 <span className="font-semibold text-white">{lastCompact}</span>{" "}
@@ -214,7 +212,7 @@ export default function WorkoutPage() {
           {/* Weight (narrow + centered) */}
           <div className="mb-4 flex justify-center">
             <label className="block w-44">
-              <span className="mb-1 block text-xs text-white/60 text-center">
+              <span className="mb-1 block text-center text-xs text-white/60">
                 Weight
               </span>
               <input
@@ -227,10 +225,14 @@ export default function WorkoutPage() {
             </label>
           </div>
 
-          <div className={`grid gap-3 ${setCount === 4 ? "grid-cols-4" : "grid-cols-3"}`}>
+          <div
+            className={`grid gap-3 ${
+              setCount === 4 ? "grid-cols-4" : "grid-cols-3"
+            }`}
+          >
             {repsText.map((val, i) => (
               <label key={i} className="block">
-                <span className="mb-1 block text-xs text-white/60">
+                <span className="mb-1 block text-center text-xs text-white/60">
                   Set {i + 1}
                 </span>
                 <input
@@ -238,7 +240,7 @@ export default function WorkoutPage() {
                   pattern="[0-9]*"
                   value={val}
                   onChange={(e) => setRepValue(i, e.target.value)}
-                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
+                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
                 />
               </label>
             ))}
@@ -246,7 +248,9 @@ export default function WorkoutPage() {
 
           <div className="mt-5">
             <label className="block">
-              <span className="mb-1 block text-xs text-white/60">Notes</span>
+              <span className="mb-1 block text-center text-xs text-white/60">
+                Notes
+              </span>
               <textarea
                 value={notes}
                 onChange={(e) => {

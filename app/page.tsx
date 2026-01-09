@@ -18,9 +18,9 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Workout Tracker
-          </h1>
+         <h1 className="text-3xl font-semibold tracking-tight text-center">
+  Workout Tracker
+</h1>
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
