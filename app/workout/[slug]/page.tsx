@@ -8,8 +8,15 @@ type WorkoutLog = {
   workout_name: string | null; // only for "other"
   weight: number | null;
   reps: Array<number | null>;
-  compact: string; // "55 - 12/12/12" OR "Leg Extension - 80 - 12/12/12"
+  compact: string;
   notes: string | null;
+};
+
+type WorkoutDraft = {
+  otherName: string;
+  weightText: string;
+  repsText: string[];
+  notes: string;
 };
 
 function todayISODate(): string {
@@ -43,58 +50,121 @@ export default function WorkoutPage() {
   const setCount = slugStr === "leg-press" ? 4 : 3;
 
   const storageKey = slugStr ? `workout_log_${slugStr}_v1` : "workout_log__v1";
+  const draftKey = slugStr ? `workout_draft_${slugStr}_v1` : "workout_draft__v1";
 
-  const [otherName, setOtherName] = useState("");
-  const [weightText, setWeightText] = useState("");
-  const [repsText, setRepsText] = useState<string[]>(
-    Array.from({ length: setCount }, () => "")
+  const emptyDraft: WorkoutDraft = useMemo(
+    () => ({
+      otherName: "",
+      weightText: "",
+      repsText: Array.from({ length: setCount }, () => ""),
+      notes: "",
+    }),
+    [setCount]
   );
-  const [notes, setNotes] = useState("");
+
+  const [draft, setDraft] = useState<WorkoutDraft>(emptyDraft);
   const [status, setStatus] = useState<"idle" | "saved">("idle");
 
   const [lastCompact, setLastCompact] = useState<string | null>(null);
   const [lastDate, setLastDate] = useState<string | null>(null);
   const [lastNotes, setLastNotes] = useState<string | null>(null);
 
-  useEffect(() => {
-    setRepsText((prev) =>
-      Array.from({ length: setCount }, (_, i) => prev[i] ?? "")
-    );
-  }, [setCount]);
+  function isDraftEmpty(d: WorkoutDraft) {
+    const allRepsEmpty = d.repsText.every((v) => v.trim() === "");
+    const baseEmpty =
+      d.weightText.trim() === "" && allRepsEmpty && d.notes.trim() === "";
+    if (isOther) return d.otherName.trim() === "" || baseEmpty; // require name + something else
+    return baseEmpty;
+  }
 
+  function persistDraft(next: WorkoutDraft) {
+    if (!slugStr) return;
+    // For non-other workouts: if all fields empty, remove draft
+    // For other workout: remove draft if truly empty OR missing name
+    const shouldRemove =
+      (!isOther &&
+        next.weightText.trim() === "" &&
+        next.repsText.every((v) => v.trim() === "") &&
+        next.notes.trim() === "") ||
+      (isOther &&
+        next.otherName.trim() === "" &&
+        next.weightText.trim() === "" &&
+        next.repsText.every((v) => v.trim() === "") &&
+        next.notes.trim() === "");
+
+    if (shouldRemove) {
+      localStorage.removeItem(draftKey);
+      return;
+    }
+
+    localStorage.setItem(draftKey, JSON.stringify(next));
+  }
+
+  // Load last session + load draft whenever slug changes
   useEffect(() => {
     if (!slugStr) return;
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as WorkoutLog;
-      setLastCompact(parsed.compact || null);
-      setLastDate(parsed.date || null);
-      setLastNotes(parsed.notes || null);
-    } catch {
-      // ignore
-    }
-  }, [slugStr, storageKey]);
 
-  const parsedOtherName = useMemo(() => otherName.trim(), [otherName]);
+    setStatus("idle");
+
+    // last session
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as WorkoutLog;
+        setLastCompact(parsed.compact || null);
+        setLastDate(parsed.date || null);
+        setLastNotes(parsed.notes || null);
+      } catch {
+        setLastCompact(null);
+        setLastDate(null);
+        setLastNotes(null);
+      }
+    } else {
+      setLastCompact(null);
+      setLastDate(null);
+      setLastNotes(null);
+    }
+
+    // draft
+    const draftRaw = localStorage.getItem(draftKey);
+    if (draftRaw) {
+      try {
+        const parsed = JSON.parse(draftRaw) as WorkoutDraft;
+        const shaped: WorkoutDraft = {
+          otherName: parsed.otherName ?? "",
+          weightText: parsed.weightText ?? "",
+          notes: parsed.notes ?? "",
+          repsText: Array.from({ length: setCount }, (_, i) => parsed.repsText?.[i] ?? ""),
+        };
+        setDraft(shaped);
+        return;
+      } catch {
+        // fall through to empty
+      }
+    }
+
+    setDraft(emptyDraft);
+  }, [slugStr, storageKey, draftKey, setCount, emptyDraft]);
+
+  const parsedOtherName = useMemo(() => draft.otherName.trim(), [draft.otherName]);
 
   const parsedWeight = useMemo(() => {
-    const t = weightText.trim();
+    const t = draft.weightText.trim();
     if (t === "") return null;
     const n = Number(t);
     if (!Number.isFinite(n) || n < 0) return null;
     return Math.floor(n);
-  }, [weightText]);
+  }, [draft.weightText]);
 
   const parsedReps = useMemo(() => {
-    return repsText.map((t) => {
+    return draft.repsText.map((t) => {
       const trimmed = t.trim();
       if (trimmed === "") return null;
       const n = Number(trimmed);
       if (!Number.isFinite(n) || n < 0) return null;
       return Math.floor(n);
     });
-  }, [repsText]);
+  }, [draft.repsText]);
 
   const repsPart = useMemo(() => {
     const repsFilled = parsedReps.filter((n): n is number => n !== null);
@@ -123,21 +193,36 @@ export default function WorkoutPage() {
   const canLog = useMemo(() => {
     const anyReps = parsedReps.some((n) => n !== null);
     const hasWeight = parsedWeight !== null;
-
     if (isOther) return parsedOtherName.length > 0 && (anyReps || hasWeight);
     return anyReps || hasWeight;
   }, [isOther, parsedOtherName, parsedReps, parsedWeight]);
 
-  function setDigitsOnly(setter: (v: string) => void, value: string) {
-    const cleaned = value.replace(/[^\d]/g, "").slice(0, 3);
-    setter(cleaned);
+  function updateDraft(next: WorkoutDraft) {
+    persistDraft(next); // <-- write immediately (no race)
+    setDraft(next);
     setStatus("idle");
   }
 
-  function setRepValue(idx: number, value: string) {
-    const cleaned = value.replace(/[^\d]/g, "").slice(0, 3);
-    setRepsText((prev) => prev.map((v, i) => (i === idx ? cleaned : v)));
-    setStatus("idle");
+  function setDigitsOnly(value: string) {
+    return value.replace(/[^\d]/g, "").slice(0, 3);
+  }
+
+  function onOtherNameChange(v: string) {
+    updateDraft({ ...draft, otherName: v });
+  }
+
+  function onWeightChange(v: string) {
+    updateDraft({ ...draft, weightText: setDigitsOnly(v) });
+  }
+
+  function onRepChange(idx: number, v: string) {
+    const cleaned = setDigitsOnly(v);
+    const nextReps = draft.repsText.map((x, i) => (i === idx ? cleaned : x));
+    updateDraft({ ...draft, repsText: nextReps });
+  }
+
+  function onNotesChange(v: string) {
+    updateDraft({ ...draft, notes: v });
   }
 
   function logWorkout() {
@@ -149,7 +234,7 @@ export default function WorkoutPage() {
       weight: parsedWeight,
       reps: parsedReps,
       compact,
-      notes: notes.trim() ? notes.trim() : null,
+      notes: draft.notes.trim() ? draft.notes.trim() : null,
     };
 
     localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -158,6 +243,9 @@ export default function WorkoutPage() {
     setLastDate(payload.date);
     setLastNotes(payload.notes);
     setStatus("saved");
+
+    localStorage.removeItem(draftKey);
+    setDraft(emptyDraft);
   }
 
   if (!slugStr) {
@@ -178,11 +266,8 @@ export default function WorkoutPage() {
         <header className="mb-6">
           {isOther ? (
             <input
-              value={otherName}
-              onChange={(e) => {
-                setOtherName(e.target.value);
-                setStatus("idle");
-              }}
+              value={draft.otherName}
+              onChange={(e) => onOtherNameChange(e.target.value)}
               className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-center text-2xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
             />
           ) : (
@@ -209,7 +294,6 @@ export default function WorkoutPage() {
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
-          {/* Weight (narrow + centered) */}
           <div className="mb-4 flex justify-center">
             <label className="block w-44">
               <span className="mb-1 block text-center text-xs text-white/60">
@@ -218,8 +302,8 @@ export default function WorkoutPage() {
               <input
                 inputMode="numeric"
                 pattern="[0-9]*"
-                value={weightText}
-                onChange={(e) => setDigitsOnly(setWeightText, e.target.value)}
+                value={draft.weightText}
+                onChange={(e) => onWeightChange(e.target.value)}
                 className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
               />
             </label>
@@ -230,7 +314,7 @@ export default function WorkoutPage() {
               setCount === 4 ? "grid-cols-4" : "grid-cols-3"
             }`}
           >
-            {repsText.map((val, i) => (
+            {draft.repsText.map((val, i) => (
               <label key={i} className="block">
                 <span className="mb-1 block text-center text-xs text-white/60">
                   Set {i + 1}
@@ -239,7 +323,7 @@ export default function WorkoutPage() {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={val}
-                  onChange={(e) => setRepValue(i, e.target.value)}
+                  onChange={(e) => onRepChange(i, e.target.value)}
                   className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
                 />
               </label>
@@ -252,11 +336,8 @@ export default function WorkoutPage() {
                 Notes
               </span>
               <textarea
-                value={notes}
-                onChange={(e) => {
-                  setNotes(e.target.value);
-                  setStatus("idle");
-                }}
+                value={draft.notes}
+                onChange={(e) => onNotesChange(e.target.value)}
                 rows={2}
                 className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base outline-none focus:border-white/20 focus:bg-black/40"
               />

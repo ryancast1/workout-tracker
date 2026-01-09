@@ -9,7 +9,13 @@ type PushupLog = {
   notes: string | null;
 };
 
+type PushupDraft = {
+  setsText: string[]; // length 6
+  notes: string;
+};
+
 const STORAGE_KEY = "pushups_log_v1";
+const DRAFT_KEY = "pushups_draft_v1";
 
 function todayISODate(): string {
   const d = new Date();
@@ -34,18 +40,45 @@ export default function PushUpsPage() {
   const [lastDate, setLastDate] = useState<string | null>(null);
   const [lastNotes, setLastNotes] = useState<string | null>(null);
 
+  // Load last logged session + draft on first mount
   useEffect(() => {
+    // last session
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    try {
-      const parsed = JSON.parse(raw) as PushupLog;
-      setLastCompact(parsed.sets_compact || null);
-      setLastDate(parsed.date || null);
-      setLastNotes(parsed.notes || null);
-    } catch {
-      // ignore
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as PushupLog;
+        setLastCompact(parsed.sets_compact || null);
+        setLastDate(parsed.date || null);
+        setLastNotes(parsed.notes || null);
+      } catch {
+        // ignore
+      }
+    }
+
+    // draft
+    const draftRaw = localStorage.getItem(DRAFT_KEY);
+    if (draftRaw) {
+      try {
+        const draft = JSON.parse(draftRaw) as PushupDraft;
+        const nextSets = Array.from({ length: 6 }, (_, i) => draft.setsText?.[i] ?? "");
+        setSetsText(nextSets);
+        setNotes(draft.notes ?? "");
+      } catch {
+        // ignore
+      }
     }
   }, []);
+
+  // Auto-save draft whenever inputs change
+  useEffect(() => {
+    const allEmpty = setsText.every((v) => v.trim() === "") && notes.trim() === "";
+    if (allEmpty) {
+      localStorage.removeItem(DRAFT_KEY);
+      return;
+    }
+    const draft: PushupDraft = { setsText, notes };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  }, [setsText, notes]);
 
   const parsedSets = useMemo(() => {
     return setsText.map((t) => {
@@ -59,7 +92,7 @@ export default function PushUpsPage() {
 
   const compactSets = useMemo(() => {
     const filled = parsedSets.filter((n): n is number => n !== null);
-    return filled.map(String).join("-");
+    return filled.map(String).join("/");
   }, [parsedSets]);
 
   const canLog = compactSets.length > 0;
@@ -86,6 +119,11 @@ export default function PushUpsPage() {
     setLastDate(payload.date);
     setLastNotes(payload.notes);
 
+    // clear draft + clear inputs after logging
+    localStorage.removeItem(DRAFT_KEY);
+    setSetsText(["", "", "", "", "", ""]);
+    setNotes("");
+
     setStatus("saved");
   }
 
@@ -93,23 +131,25 @@ export default function PushUpsPage() {
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6">
-          <h1 className="text-3xl font-semibold tracking-tight text-center">Push Ups</h1>
+          <h1 className="text-3xl font-semibold tracking-tight text-center">
+            Push Ups
+          </h1>
 
           {lastCompact && lastDate && (
-  <div className="mt-2 text-center">
-    <div className="text-sm text-white/70">
-      <span className="text-white/60">Last Session: </span>
-      <span className="font-semibold text-white">{lastCompact}</span>{" "}
-      <span className="text-white/60">{isoToMDY(lastDate)}</span>
-    </div>
+            <div className="mt-2 text-center">
+              <div className="text-sm text-white/70">
+                <span className="text-white/60">Last Session: </span>
+                <span className="font-semibold text-white">{lastCompact}</span>{" "}
+                <span className="text-white/60">{isoToMDY(lastDate)}</span>
+              </div>
 
-    {lastNotes && (
-      <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
-        {lastNotes}
-      </div>
-    )}
-  </div>
-)}
+              {lastNotes && (
+                <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
+                  {lastNotes}
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
@@ -124,7 +164,7 @@ export default function PushUpsPage() {
                   pattern="[0-9]*"
                   value={val}
                   onChange={(e) => setSetValue(i, e.target.value)}
-                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-xl font-semibold tracking-tight outline-none focus:border-white/20 focus:bg-black/40"
                 />
               </label>
             ))}
