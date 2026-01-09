@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type PushupLog = {
   date: string; // YYYY-MM-DD
   sets: Array<number | null>; // length 5
+  sets_compact: string; // "10-10-10"
+  notes: string | null;
 };
 
 const STORAGE_KEY = "pushups_log_v1";
@@ -17,10 +19,34 @@ function todayISODate(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function isoToMDY(iso: string): string {
+  // iso: YYYY-MM-DD -> M/D/YYYY (no leading zeros)
+  const [y, m, d] = iso.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return iso;
+  return `${m}/${d}/${y}`;
+}
+
 export default function Home() {
   const [setsText, setSetsText] = useState<string[]>(["", "", "", "", ""]);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<"idle" | "saved">("idle");
+
+  const [lastCompact, setLastCompact] = useState<string | null>(null);
+  const [lastDate, setLastDate] = useState<string | null>(null);
+  const [lastNotes, setLastNotes] = useState<string | null>(null);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as PushupLog;
+      setLastCompact(parsed.sets_compact || null);
+      setLastDate(parsed.date || null);
+      setLastNotes(parsed.notes || null);
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const parsedSets = useMemo(() => {
     return setsText.map((t) => {
@@ -32,10 +58,14 @@ export default function Home() {
     });
   }, [setsText]);
 
-  const canLog = useMemo(() => parsedSets.some((n) => n !== null), [parsedSets]);
+  const compactSets = useMemo(() => {
+    const filled = parsedSets.filter((n): n is number => n !== null);
+    return filled.map(String).join("-");
+  }, [parsedSets]);
+
+  const canLog = compactSets.length > 0;
 
   function setSetValue(idx: number, value: string) {
-    // digits only, max 3 chars (you said ~2 digits, but allow 3 just in case)
     const cleaned = value.replace(/[^\d]/g, "").slice(0, 3);
     setSetsText((prev) => prev.map((v, i) => (i === idx ? cleaned : v)));
     setStatus("idle");
@@ -47,16 +77,15 @@ export default function Home() {
     const payload: PushupLog = {
       date: todayISODate(),
       sets: parsedSets,
+      sets_compact: compactSets, // skips empties automatically
+      notes: notes.trim() ? notes.trim() : null,
     };
 
-    // For now: save ONLY the latest log (we’ll expand to a list later)
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...payload,
-        notes: notes.trim() || null,
-      })
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+
+    setLastCompact(payload.sets_compact);
+    setLastDate(payload.date);
+    setLastNotes(payload.notes);
 
     setStatus("saved");
   }
@@ -66,9 +95,22 @@ export default function Home() {
       <div className="mx-auto w-full max-w-md">
         <header className="mb-6">
           <h1 className="text-3xl font-semibold tracking-tight">Push Ups</h1>
-          <p className="mt-1 text-sm text-white/60">
-            Enter reps for up to 5 sets.
-          </p>
+
+          {lastCompact && lastDate && (
+            <div className="mt-2">
+              <div className="text-sm text-white/70">
+                <span className="text-white/60">Last Session: </span>
+                <span className="font-semibold text-white">{lastCompact}</span>{" "}
+                <span className="text-white/60">{isoToMDY(lastDate)}</span>
+              </div>
+
+              {lastNotes && (
+                <div className="mt-1 text-sm text-white/60 whitespace-pre-wrap">
+                  {lastNotes}
+                </div>
+              )}
+            </div>
+          )}
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
@@ -81,10 +123,9 @@ export default function Home() {
                 <input
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  placeholder="0"
                   value={val}
                   onChange={(e) => setSetValue(i, e.target.value)}
-                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none ring-0 placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+                  className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-xl font-semibold tracking-tight outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
                 />
               </label>
             ))}
@@ -100,8 +141,7 @@ export default function Home() {
                   setStatus("idle");
                 }}
                 rows={2}
-                placeholder="Anything notable…"
-                className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base outline-none placeholder:text-white/20 focus:border-white/20 focus:bg-black/40"
+                className="w-full resize-none rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-base outline-none focus:border-white/20 focus:bg-black/40"
               />
             </label>
           </div>
@@ -118,10 +158,6 @@ export default function Home() {
             {status === "saved" ? "Saved ✓" : " "}
           </div>
         </section>
-
-        <p className="mt-6 text-center text-xs text-white/40">
-          (For now this saves the latest entry locally on this device.)
-        </p>
       </div>
     </main>
   );
