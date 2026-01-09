@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { getLastSession, saveSession } from "@/lib/db";
-import { supabase } from "@/lib/supabaseClient";
 
 
 type WorkoutLog = {
@@ -373,15 +372,7 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
           </div>
         </section>
       </div>
-      <button
-  onClick={async () => {
-    await supabase.auth.signOut();
-    alert("Signed out");
-  }}
-  className="mt-6 w-full h-12 rounded-xl border border-white/10 bg-black/20 text-white/70"
->
-  Sign out (test)
-</button>
+      
     </main>
   );
 }
