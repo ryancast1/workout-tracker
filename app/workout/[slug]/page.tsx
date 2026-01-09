@@ -222,7 +222,7 @@ export default function WorkoutPage() {
     updateDraft({ ...draft, notes: v });
   }
 
-  function logWorkout() {
+ async function logWorkout() {
     if (!slugStr || !canLog) return;
 
     const payload: WorkoutLog = {
@@ -234,13 +234,16 @@ export default function WorkoutPage() {
       notes: draft.notes.trim() ? draft.notes.trim() : null,
     };
 
-    saveSession({
-  workout: slugStr,
+   await saveSession({
+  workout_slug: slugStr,
+  workout_name: isOther ? parsedOtherName : null,
   performed_on: payload.date,
+  weight: parsedWeight,
+  sets: parsedReps,
+  compact,
   notes: payload.notes,
-  compact: payload.compact,
-  payload: payload, // keep everything for now
 });
+
 
     setLastCompact(payload.compact || null);
     setLastDate(payload.date);

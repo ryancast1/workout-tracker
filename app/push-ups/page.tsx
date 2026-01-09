@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getLastSession, saveSession } from "@/lib/db";
+
 
 type PushupLog = {
   date: string; // YYYY-MM-DD
@@ -42,18 +44,19 @@ export default function PushUpsPage() {
 
   // Load last logged session + draft on first mount
   useEffect(() => {
-    // last session
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw) as PushupLog;
-        setLastCompact(parsed.sets_compact || null);
-        setLastDate(parsed.date || null);
-        setLastNotes(parsed.notes || null);
-      } catch {
-        // ignore
-      }
-    }
+    // last session (from DB)
+(async () => {
+  const last = await getLastSession("push-ups");
+  if (last) {
+    setLastCompact(last.compact || null);
+    setLastDate(last.performed_on || null);
+    setLastNotes(last.notes || null);
+  } else {
+    setLastCompact(null);
+    setLastDate(null);
+    setLastNotes(null);
+  }
+})();
 
     // draft
     const draftRaw = localStorage.getItem(DRAFT_KEY);
@@ -103,8 +106,8 @@ export default function PushUpsPage() {
     setStatus("idle");
   }
 
-  function logWorkout() {
-    if (!canLog) return;
+async function logWorkout() {
+      if (!canLog) return;
 
     const payload: PushupLog = {
       date: todayISODate(),
@@ -113,7 +116,15 @@ export default function PushUpsPage() {
       notes: notes.trim() ? notes.trim() : null,
     };
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+await saveSession({
+  workout_slug: "push-ups",
+  workout_name: null,
+  performed_on: payload.date,
+  weight: null,
+  sets: payload.sets,          // already parsed numbers/nulls
+  compact: payload.sets_compact,
+  notes: payload.notes,
+});
 
     setLastCompact(payload.sets_compact);
     setLastDate(payload.date);

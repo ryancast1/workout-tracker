@@ -35,6 +35,23 @@ className="flex h-16 items-center justify-center rounded-xl border border-white/
               </Link>
             ))}
           </div>
+
+          <div className="mt-6 space-y-3">
+  <Link
+    href="/data"
+    className="block h-14 w-full rounded-xl border border-white/10 bg-white/5 text-white text-lg font-semibold grid place-items-center active:scale-[0.99]"
+  >
+    View / Edit Data
+  </Link>
+
+  <Link
+    href="/dashboard"
+    className="block h-14 w-full rounded-xl border border-white/10 bg-white/5 text-white text-lg font-semibold grid place-items-center active:scale-[0.99]"
+  >
+    Dashboard
+  </Link>
+</div>
+
         </section>
       </div>
     </main>
