@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { getLastSession, saveSession } from "@/lib/db";
-
+import RestTimer from "@/components/RestTimer";
 
 type WorkoutLog = {
   date: string; // YYYY-MM-DD
@@ -411,6 +411,10 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
             {status === "saved" ? "Saved ✓" : " "}
           </div>
         </section>
+
+      <RestTimer initialSeconds={90} />
+      
+        
       </div>
       
     </main>
