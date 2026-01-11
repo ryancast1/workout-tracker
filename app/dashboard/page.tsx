@@ -7,16 +7,18 @@ import { listSessionsSince, listWeightSeries } from "@/lib/db";
 const START_ISO = "2026-01-01";
 
 const WORKOUTS: { slug: string; label: string }[] = [
-  { slug: "push-ups", label: "PU" },
+ { slug: "push-ups", label: "PU" },
   { slug: "bicep-curls", label: "BC" },
   { slug: "shoulder-press", label: "SP" },
   { slug: "chest-press", label: "CP" },
+  { slug: "lateral-raise", label: "LR" },
+  { slug: "triceps-press", label: "TP" },
   { slug: "lat-pulldown", label: "LP" },
   { slug: "row", label: "RW" },
-  { slug: "leg-press", label: "LPr" },
+  { slug: "rear-delt-fly", label: "RD" },
+  { slug: "leg-press", label: "LG" },
   { slug: "leg-curl", label: "LC" },
-  { slug: "lateral-raise", label: "LR" },
-];
+] as const;
 
 const WEIGHT_WORKOUTS = WORKOUTS.filter((w) => w.slug !== "push-ups");
 
@@ -71,6 +73,11 @@ export default function DashboardPage() {
   });
   const [weightSeries, setWeightSeries] = useState<{ performed_on: string; weight: number }[]>([]);
   const [weightLoading, setWeightLoading] = useState(false);
+
+  // Matrix sizing (tuned for iPhone width)
+  const DATE_COL = 64;
+  const CELL = 22;
+  const matrixCols = `${DATE_COL}px repeat(${WORKOUTS.length}, ${CELL}px)`;
 
   useEffect(() => {
     (async () => {
@@ -168,7 +175,7 @@ export default function DashboardPage() {
 
               <div className="mt-3">
                 {/* header */}
-                <div className="grid grid-cols-[76px_repeat(9,26px)] gap-0">
+                <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
                   <div className="px-1 py-2 text-[11px] text-white/70 text-center">Date</div>
                   {WORKOUTS.map((w) => (
                     <div
@@ -184,7 +191,7 @@ export default function DashboardPage() {
                 {/* rows */}
                 <div className="mt-1">
                   {dayList.map((iso) => (
-                    <div key={iso} className="grid grid-cols-[76px_repeat(9,26px)] gap-0">
+                    <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
                       <div className="px-1 py-[6px] text-[11px] text-white/70 text-center">
                         {fmtMD(iso)}
                       </div>
@@ -195,7 +202,7 @@ export default function DashboardPage() {
                           <div
                             key={w.slug}
                             className={[
-                              "h-6 border rounded-sm",
+                              "h-[22px] border rounded-sm",
                               filled
                                 ? "bg-emerald-500/80 border-emerald-400/60"
                                 : "bg-white/5 border-white/10",
