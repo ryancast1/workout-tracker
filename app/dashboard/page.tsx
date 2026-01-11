@@ -1,25 +1,38 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { listSessionsSince, listWeightSeries } from "@/lib/db";
 
 const START_ISO = "2026-01-01";
 
-const WORKOUTS: { slug: string; label: string }[] = [
- { slug: "push-ups", label: "PU" },
-  { slug: "bicep-curls", label: "BC" },
-  { slug: "shoulder-press", label: "SP" },
-  { slug: "chest-press", label: "CP" },
-  { slug: "lateral-raise", label: "LR" },
-  { slug: "triceps-press", label: "TP" },
-  { slug: "lat-pulldown", label: "LP" },
-  { slug: "row", label: "RW" },
-  { slug: "rear-delt-fly", label: "RD" },
-  { slug: "leg-press", label: "LG" },
-  { slug: "leg-curl", label: "LC" },
-] as const;
+type WorkoutCol = { kind: "workout"; slug: string; label: string };
+type MatrixCol = { kind: "date" } | { kind: "spacer" } | WorkoutCol;
 
+// We insert blank spacer columns between your training-day groupings:
+// [PU, BC] | [SP, CP, LR, TP] | [LP, RW, RD] | [LG, LC]
+const MATRIX_COLS: MatrixCol[] = [
+  { kind: "date" },
+
+  { kind: "workout", slug: "push-ups", label: "PU" },
+  { kind: "workout", slug: "bicep-curls", label: "BC" },
+  { kind: "spacer" },
+
+  { kind: "workout", slug: "shoulder-press", label: "SP" },
+  { kind: "workout", slug: "chest-press", label: "CP" },
+  { kind: "workout", slug: "lateral-raise", label: "LR" },
+  { kind: "workout", slug: "triceps-press", label: "TP" },
+  { kind: "spacer" },
+
+  { kind: "workout", slug: "lat-pulldown", label: "LP" },
+  { kind: "workout", slug: "row", label: "RW" },
+  { kind: "workout", slug: "rear-delt-fly", label: "RD" },
+  { kind: "spacer" },
+
+  { kind: "workout", slug: "leg-press", label: "LG" },
+  { kind: "workout", slug: "leg-curl", label: "LC" },
+];
+
+const WORKOUTS = MATRIX_COLS.filter((c): c is WorkoutCol => c.kind === "workout");
 const WEIGHT_WORKOUTS = WORKOUTS.filter((w) => w.slug !== "push-ups");
 
 function isoFromUTCDate(d: Date) {
@@ -75,9 +88,12 @@ export default function DashboardPage() {
   const [weightLoading, setWeightLoading] = useState(false);
 
   // Matrix sizing (tuned for iPhone width)
-  const DATE_COL = 48; // narrower date column
-  const CELL = 24; // slightly larger cells
-  const matrixCols = `${DATE_COL}px repeat(${WORKOUTS.length}, ${CELL}px)`;
+  const DATE_COL = 42; // narrower date column
+  const CELL = 23; // slightly larger cells
+  const SPACER = 8; // blank spacing between workout-day groupings
+  const matrixCols = MATRIX_COLS
+    .map((c) => (c.kind === "date" ? `${DATE_COL}px` : c.kind === "spacer" ? `${SPACER}px` : `${CELL}px`))
+    .join(" ");
 
   useEffect(() => {
     (async () => {
@@ -156,56 +172,57 @@ export default function DashboardPage() {
       <div className="mx-auto w-full max-w-md">
         <h1 className="text-3xl font-semibold tracking-tight text-center">Dashboard</h1>
 
-        <div className="mt-3 flex justify-center">
-          <Link href="/" className="text-sm text-white/70 underline underline-offset-4">
-            Back to workouts
-          </Link>
-        </div>
-
         {loading ? (
           <div className="mt-8 text-center text-white/60">Loading…</div>
         ) : (
           <div className="mt-6 space-y-6">
             {/* Card 1: matrix */}
             <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold">Consistency by workout</h2>
-                <div className="text-xs text-white/50">since 1/1</div>
-              </div>
-
-              <div className="mt-3">
-                {/* header */}
+              <div className="mt-2">
                 <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
-                  <div className="px-1 py-2 text-[11px] text-white/70 text-center">Date</div>
-                  {WORKOUTS.map((w) => (
-                    <div
-                      key={w.slug}
-                      className="py-2 text-[11px] text-white/70 text-center"
-                      title={w.slug}
-                    >
-                      {w.label}
-                    </div>
-                  ))}
+                  {MATRIX_COLS.map((c, i) => {
+                    if (c.kind === "date") {
+                      return (
+                        <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
+                          Date
+                        </div>
+                      );
+                    }
+                    if (c.kind === "spacer") {
+                      return <div key={`sp-h-${i}`} className="py-2" />;
+                    }
+                    return (
+                      <div key={c.slug} className="py-2 text-[11px] text-white/70 text-center" title={c.slug}>
+                        {c.label}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* rows */}
                 <div className="mt-1">
                   {dayList.map((iso) => (
                     <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
-                      <div className="px-1 py-[6px] text-[11px] text-white/70 text-center">
-                        {fmtMD(iso)}
-                      </div>
+                      {MATRIX_COLS.map((c, i) => {
+                        if (c.kind === "date") {
+                          return (
+                            <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
+                              {fmtMD(iso)}
+                            </div>
+                          );
+                        }
 
-                      {WORKOUTS.map((w) => {
-                        const filled = doneSet.has(`${iso}|${w.slug}`);
+                        if (c.kind === "spacer") {
+                          return <div key={`sp-${iso}-${i}`} className="h-[22px]" />;
+                        }
+
+                        const filled = doneSet.has(`${iso}|${c.slug}`);
                         return (
                           <div
-                            key={w.slug}
+                            key={`${iso}-${c.slug}`}
                             className={[
                               "h-[22px] border rounded-sm",
-                              filled
-                                ? "bg-emerald-500/80 border-emerald-400/60"
-                                : "bg-white/5 border-white/10",
+                              filled ? "bg-emerald-500/80 border-emerald-400/60" : "bg-white/5 border-white/10",
                             ].join(" ")}
                           />
                         );
@@ -218,13 +235,8 @@ export default function DashboardPage() {
 
             {/* Card 2: calendar grid */}
             <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold">Any workout</h2>
-                <div className="text-xs text-white/50">Mon → Sun</div>
-              </div>
-
               {/* weekday header */}
-              <div className="mt-3 grid grid-cols-7 gap-0 text-[11px] text-white/60">
+              <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
                 {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
                   <div key={`${d}-${i}`} className="text-center py-1">
                     {d}
@@ -270,24 +282,21 @@ export default function DashboardPage() {
 
             {/* Card 3: weight over time */}
             <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-lg font-semibold">Weight over time</h2>
-                <div className="text-xs text-white/50">since 1/1</div>
-              </div>
-
-              <div className="mt-3">
-                <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
-                <select
-                  value={weightSlug}
-                  onChange={(e) => setWeightSlug(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
-                >
-                  {WEIGHT_WORKOUTS.map((w) => (
-                    <option key={w.slug} value={w.slug}>
-                      {w.label} — {titleFromSlug(w.slug)}
-                    </option>
-                  ))}
-                </select>
+              <div className="mt-2">
+                <div className="mt-3">
+                  <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
+                  <select
+                    value={weightSlug}
+                    onChange={(e) => setWeightSlug(e.target.value)}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
+                  >
+                    {WEIGHT_WORKOUTS.map((w) => (
+                      <option key={w.slug} value={w.slug}>
+                        {w.label} — {titleFromSlug(w.slug)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="mt-4">
