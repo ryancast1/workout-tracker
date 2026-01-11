@@ -36,8 +36,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
-        <header className="mb-6">
-         <h1 className="text-3xl font-semibold tracking-tight text-center">
+        <header className="mb-3">
+         <h1 className="text-2xl font-semibold tracking-tight text-center">
   Workout Tracker
 </h1>
         </header>
@@ -64,7 +64,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-3 space-y-2">
   <Link
     href="/data"
     className="block h-14 w-full rounded-xl border border-white/10 bg-white/5 text-white text-lg font-semibold grid place-items-center active:scale-[0.99]"
