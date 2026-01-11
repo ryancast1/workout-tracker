@@ -294,7 +294,7 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
 
   if (!slugStr) {
     return (
-      <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
+      <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-6 text-white">
         <div className="mx-auto w-full max-w-md">
           <h1 className="text-2xl font-semibold text-center">Workout</h1>
         </div>
@@ -311,7 +311,7 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
   return (
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
-        <header className="mb-6">
+        <header className="mb-4">
           {isOther ? (
             <input
               value={draft.otherName}
@@ -348,7 +348,7 @@ const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">("idl
           )}
         </header>
 
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-5 shadow-sm">
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-3 shadow-sm">
           <div className="mb-4 flex justify-center">
             <label className="block w-44">
               <span className="mb-1 block text-center text-xs text-white/60">
