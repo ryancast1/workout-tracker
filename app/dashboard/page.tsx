@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { listSessionsSince, listWeightSeries } from "@/lib/db";
+import { getLastSession, listSessionsSince, listWeightSeries } from "@/lib/db";
 
 const START_ISO = "2026-01-01";
 
@@ -79,6 +79,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [pairs, setPairs] = useState<{ performed_on: string; workout_slug: string }[]>([]);
 
+  const [lastBySlug, setLastBySlug] = useState<
+    Record<string, { performed_on: string; compact: string | null; notes: string | null } | null>
+  >({});
+
   // weight chart state
   const [weightSlug, setWeightSlug] = useState<string>(() => {
     if (typeof window === "undefined") return "bicep-curls";
@@ -108,6 +112,31 @@ export default function DashboardPage() {
       }
     })();
   }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const entries = await Promise.all(
+          WORKOUTS.map(async (w) => {
+            const last = await getLastSession(w.slug);
+            if (!last) return [w.slug, null] as const;
+            return [
+              w.slug,
+              {
+                performed_on: last.performed_on,
+                compact: last.compact ?? null,
+                notes: last.notes ?? null,
+              },
+            ] as const;
+          })
+        );
+        setLastBySlug(Object.fromEntries(entries));
+      } catch (e: any) {
+        // non-fatal: dashboard can still render without this
+        console.error("Last-session list failed:", e);
+      }
+    })();
+  }, [pairs]);
 
   useEffect(() => {
     if (!weightSlug) return;
@@ -168,147 +197,198 @@ export default function DashboardPage() {
   const todayISO = isoFromUTCDate(todayUTC());
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-4 py-8 text-white">
-      <div className="mx-auto w-full max-w-md">
+    <main className="min-h-screen md:h-screen md:overflow-hidden bg-gradient-to-b from-black to-zinc-950 px-4 py-8 text-white">
+      <div className="mx-auto w-full max-w-md md:max-w-7xl md:h-full md:flex md:flex-col">
         <h1 className="text-3xl font-semibold tracking-tight text-center">Dashboard</h1>
 
         {loading ? (
           <div className="mt-8 text-center text-white/60">Loading…</div>
         ) : (
-          <div className="mt-6 space-y-6">
-            {/* Card 1: matrix */}
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
-              <div className="mt-2">
-                <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
-                  {MATRIX_COLS.map((c, i) => {
-                    if (c.kind === "date") {
-                      return (
-                        <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
-                          Date
-                        </div>
-                      );
-                    }
-                    if (c.kind === "spacer") {
-                      return <div key={`sp-h-${i}`} className="py-2" />;
-                    }
-                    return (
-                      <div key={c.slug} className="py-2 text-[11px] text-white/70 text-center" title={c.slug}>
-                        {c.label}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* rows */}
-                <div className="mt-1">
-                  {dayList.map((iso) => (
-                    <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
+          <div className="mt-6 md:flex-1 md:overflow-hidden">
+            <div className="space-y-6 md:space-y-0 md:h-full md:grid md:grid-cols-[380px_1fr] md:gap-6 lg:grid-cols-[410px_1fr]">
+              {/* LEFT COLUMN (scrolls on desktop): consistency charts */}
+              <div className="space-y-6 md:h-full md:overflow-y-auto md:pr-2">
+                {/* Card 1: matrix */}
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                  <div className="mt-2">
+                    <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
                       {MATRIX_COLS.map((c, i) => {
                         if (c.kind === "date") {
                           return (
-                            <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
-                              {fmtMD(iso)}
+                            <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
+                              Date
                             </div>
                           );
                         }
-
                         if (c.kind === "spacer") {
-                          return <div key={`sp-${iso}-${i}`} className="h-[22px]" />;
+                          return <div key={`sp-h-${i}`} className="py-2" />;
                         }
-
-                        const filled = doneSet.has(`${iso}|${c.slug}`);
                         return (
-                          <div
-                            key={`${iso}-${c.slug}`}
-                            className={[
-                              "h-[22px] border rounded-sm",
-                              filled ? "bg-emerald-500/80 border-emerald-400/60" : "bg-white/5 border-white/10",
-                            ].join(" ")}
-                          />
+                          <div key={c.slug} className="py-2 text-[11px] text-white/70 text-center" title={c.slug}>
+                            {c.label}
+                          </div>
                         );
                       })}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </section>
 
-            {/* Card 2: calendar grid */}
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              {/* weekday header */}
-              <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
-                {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
-                  <div key={`${d}-${i}`} className="text-center py-1">
-                    {d}
-                  </div>
-                ))}
-              </div>
+                    {/* rows */}
+                    <div className="mt-1">
+                      {dayList.map((iso) => (
+                        <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
+                          {MATRIX_COLS.map((c, i) => {
+                            if (c.kind === "date") {
+                              return (
+                                <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
+                                  {fmtMD(iso)}
+                                </div>
+                              );
+                            }
 
-              <div className="mt-1 space-y-0">
-                {weekRows.map((row, idx) => (
-                  <div key={idx} className="grid grid-cols-7 gap-0">
-                    {row.map((iso) => {
-                      const isBeforeStart = iso < START_ISO;
-                      const isAfterToday = iso > todayISO;
-                      const filled = anyDaySet.has(iso);
+                            if (c.kind === "spacer") {
+                              return <div key={`sp-${iso}-${i}`} className="h-[22px]" />;
+                            }
 
-                      const cls =
-                        isBeforeStart || isAfterToday
-                          ? "bg-transparent border-white/5"
-                          : filled
-                          ? "bg-emerald-500/80 border-emerald-400/60"
-                          : "bg-white/5 border-white/10";
-
-                      const dayNum = Number(iso.slice(8, 10));
-                      const showNum = !isBeforeStart && !isAfterToday;
-
-                      return (
-                        <div
-                          key={iso}
-                          className={[
-                            "h-8 border rounded-sm flex items-center justify-center text-[10px]",
-                            cls,
-                            filled ? "text-black/80" : "text-white/35",
-                          ].join(" ")}
-                        >
-                          {showNum ? dayNum : ""}
+                            const filled = doneSet.has(`${iso}|${c.slug}`);
+                            return (
+                              <div
+                                key={`${iso}-${c.slug}`}
+                                className={[
+                                  "h-[22px] border rounded-sm",
+                                  filled ? "bg-emerald-500/80 border-emerald-400/60" : "bg-white/5 border-white/10",
+                                ].join(" ")}
+                              />
+                            );
+                          })}
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
 
-            {/* Card 3: weight over time */}
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div className="mt-2">
-                <div className="mt-3">
-                  <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
-                  <select
-                    value={weightSlug}
-                    onChange={(e) => setWeightSlug(e.target.value)}
-                    className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
-                  >
-                    {WEIGHT_WORKOUTS.map((w) => (
-                      <option key={w.slug} value={w.slug}>
-                        {w.label} — {titleFromSlug(w.slug)}
-                      </option>
+                {/* Card 2: calendar grid */}
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                  {/* weekday header */}
+                  <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
+                    {[
+                      "M",
+                      "T",
+                      "W",
+                      "T",
+                      "F",
+                      "S",
+                      "S",
+                    ].map((d, i) => (
+                      <div key={`${d}-${i}`} className="text-center py-1">
+                        {d}
+                      </div>
                     ))}
-                  </select>
-                </div>
+                  </div>
+
+                  <div className="mt-1 space-y-0">
+                    {weekRows.map((row, idx) => (
+                      <div key={idx} className="grid grid-cols-7 gap-0">
+                        {row.map((iso) => {
+                          const isBeforeStart = iso < START_ISO;
+                          const isAfterToday = iso > todayISO;
+                          const filled = anyDaySet.has(iso);
+
+                          const cls =
+                            isBeforeStart || isAfterToday
+                              ? "bg-transparent border-white/5"
+                              : filled
+                              ? "bg-emerald-500/80 border-emerald-400/60"
+                              : "bg-white/5 border-white/10";
+
+                          const dayNum = Number(iso.slice(8, 10));
+                          const showNum = !isBeforeStart && !isAfterToday;
+
+                          return (
+                            <div
+                              key={iso}
+                              className={[
+                                "h-8 border rounded-sm flex items-center justify-center text-[10px]",
+                                cls,
+                                filled ? "text-black/80" : "text-white/35",
+                              ].join(" ")}
+                            >
+                              {showNum ? dayNum : ""}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </section>
               </div>
 
-              <div className="mt-4">
-                {weightLoading ? (
-                  <div className="text-center text-white/60 text-sm py-8">Loading…</div>
-                ) : weightSeries.length < 2 ? (
-                  <div className="text-center text-white/60 text-sm py-8">Not enough data yet.</div>
-                ) : (
-                  <WeightLineChart data={weightSeries} />
-                )}
+              {/* RIGHT COLUMN (fixed on desktop): chart on top, last-sessions list fills bottom */}
+              <div className="md:h-full md:flex md:flex-col md:gap-6 md:overflow-hidden">
+                {/* Card: weight chart */}
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 md:shrink-0">
+                  <div className="mt-2">
+                    <div className="mt-3">
+                      <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
+                      <select
+                        value={weightSlug}
+                        onChange={(e) => setWeightSlug(e.target.value)}
+                        className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
+                      >
+                        {WEIGHT_WORKOUTS.map((w) => (
+                          <option key={w.slug} value={w.slug}>
+                            {w.label} — {titleFromSlug(w.slug)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    {weightLoading ? (
+                      <div className="text-center text-white/60 text-sm py-8">Loading…</div>
+                    ) : weightSeries.length < 2 ? (
+                      <div className="text-center text-white/60 text-sm py-8">Not enough data yet.</div>
+                    ) : (
+                      <WeightLineChart data={weightSeries} />
+                    )}
+                  </div>
+                </section>
+
+                {/* Card: last session for each workout */}
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 md:flex-1 md:min-h-0 md:overflow-hidden">
+                  <div className="md:h-full md:overflow-y-auto md:pr-2">
+                    <div className="space-y-3">
+                      {WORKOUTS.map((w) => {
+                        const last = lastBySlug[w.slug] ?? null;
+                        return (
+                          <div key={`last-${w.slug}`} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+                            <div className="flex items-baseline justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="text-sm text-white/85 truncate">
+                                  <span className="text-white/60 mr-2">{w.label}</span>
+                                  <span className="font-semibold">{titleFromSlug(w.slug)}</span>
+                                </div>
+                              </div>
+
+                              <div className="shrink-0 text-xs text-white/55">
+                                {last?.performed_on ? fmtMD(last.performed_on) : "—"}
+                              </div>
+                            </div>
+
+                            <div className="mt-1 text-sm">
+                              <span className="text-white/80 font-semibold">{last?.compact ?? "—"}</span>
+                            </div>
+
+                            {last?.notes ? (
+                              <div className="mt-1 text-xs text-white/55 whitespace-pre-wrap">{last.notes}</div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </section>
               </div>
-            </section>
+            </div>
           </div>
         )}
       </div>
