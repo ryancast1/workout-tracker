@@ -75,8 +75,8 @@ export default function DashboardPage() {
   const [weightLoading, setWeightLoading] = useState(false);
 
   // Matrix sizing (tuned for iPhone width)
-  const DATE_COL = 64;
-  const CELL = 22;
+  const DATE_COL = 48; // narrower date column
+  const CELL = 24; // slightly larger cells
   const matrixCols = `${DATE_COL}px repeat(${WORKOUTS.length}, ${CELL}px)`;
 
   useEffect(() => {
@@ -152,7 +152,7 @@ export default function DashboardPage() {
   const todayISO = isoFromUTCDate(todayUTC());
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
+    <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-4 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
         <h1 className="text-3xl font-semibold tracking-tight text-center">Dashboard</h1>
 
@@ -167,7 +167,7 @@ export default function DashboardPage() {
         ) : (
           <div className="mt-6 space-y-6">
             {/* Card 1: matrix */}
-            <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
               <div className="flex items-baseline justify-between">
                 <h2 className="text-lg font-semibold">Consistency by workout</h2>
                 <div className="text-xs text-white/50">since 1/1</div>
