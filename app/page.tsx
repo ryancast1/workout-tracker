@@ -1,17 +1,36 @@
 import Link from "next/link";
 
-const workouts = [
-  { name: "Push Ups", href: "/push-ups" },
-  { name: "Bicep Curls", href: "/workout/bicep-curls" },
-  { name: "Shoulder Press", href: "/workout/shoulder-press" },
-  { name: "Chest Press", href: "/workout/chest-press" },
-  { name: "Lat Pulldown", href: "/workout/lat-pulldown" },
-  { name: "Row", href: "/workout/row" },
-  { name: "Leg Press", href: "/workout/leg-press" },
-  { name: "Leg Curl", href: "/workout/leg-curl" },
-  { name: "Lateral Raise", href: "/workout/lateral-raise" },
-  { name: "Other", href: "/workout/other" },
-];
+const WORKOUT_GROUPS = [
+  // Day 0
+  [
+    { label: "Push Ups", slug: "push-ups" },
+    { label: "Bicep Curls", slug: "bicep-curls" },
+  ],
+
+  // Day A
+  [
+    { label: "Shoulder Press", slug: "shoulder-press" },
+    { label: "Chest Press", slug: "chest-press" },
+
+    { label: "Lateral Raise", slug: "lateral-raise" },
+    { label: "Triceps Press", slug: "triceps-press" },
+  ],
+
+  // Day B
+  [
+    { label: "Lat Pulldown", slug: "lat-pulldown" },
+    { label: "Row", slug: "row" },
+
+    { label: "Rear Delt Fly", slug: "rear-delt-fly" },
+    { label: "Other", slug: "other" },
+  ],
+
+  // Day C
+  [
+    { label: "Leg Press", slug: "leg-press" },
+    { label: "Leg Curl", slug: "leg-curl" },
+  ],
+] as const;
 
 export default function Home() {
   return (
@@ -24,15 +43,24 @@ export default function Home() {
         </header>
 
         <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-<div className="grid grid-cols-2 gap-3">
-              {workouts.map((w) => (
-              <Link
-                key={w.href}
-                href={w.href}
-className="flex h-16 items-center justify-center rounded-xl border border-white/10 bg-black/30 px-3 text-center text-sm font-semibold text-white/90 active:scale-[0.99]"
+          <div className="space-y-3">
+            {WORKOUT_GROUPS.map((group, gi) => (
+              <div
+                key={gi}
+                className="rounded-2xl border border-white/10 bg-white/5 p-3"
               >
-                {w.name}
-              </Link>
+                <div className="grid grid-cols-2 gap-3">
+                  {group.map((w) => (
+                    <Link
+                      key={w.slug}
+                      href={w.slug === "push-ups" ? "/push-ups" : `/workout/${w.slug}`}
+                      className="flex h-16 items-center justify-center rounded-xl border border-white/10 bg-black/30 px-3 text-center text-sm font-semibold text-white/90 active:scale-[0.99]"
+                    >
+                      {w.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
 

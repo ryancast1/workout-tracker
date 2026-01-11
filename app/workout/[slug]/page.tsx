@@ -44,6 +44,8 @@ const TARGETS: Record<string, string> = {
   "leg-press": "10–15",
   "leg-curl": "10–15",
   "lateral-raise": "12–20",
+  "triceps-press": "10–15",
+"rear-delt-fly": "12–20",
   // push-ups handled on its own page; other is freeform
 };
 
