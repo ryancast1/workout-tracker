@@ -372,16 +372,16 @@ export default function DashboardPage() {
               {AnyWorkoutCard}
               {WeightCard}
 
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <div className="space-y-4">
-                  {GROUPS.map((g, gi) => (
-                    <div key={g.id}>
-                      {gi > 0 ? <div className="h-3" /> : null}
-                      <div className="space-y-3">{g.items.map((w) => LastCardItem(w, `m-${g.id}`))}</div>
-                    </div>
-                  ))}
-                </div>
-              </section>
+              <div className="space-y-6">
+                {GROUPS.map((g) => (
+                  <section
+                    key={g.id}
+                    className="rounded-2xl border border-white/10 bg-white/5 p-4"
+                  >
+                    <div className="space-y-3">{g.items.map((w) => LastCardItem(w, `m-${g.id}`))}</div>
+                  </section>
+                ))}
+              </div>
             </div>
 
             {/* DESKTOP / HORIZONTAL SCREENS */}
