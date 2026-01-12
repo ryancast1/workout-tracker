@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getLastSession, listSessionsSince, listWeightSeries } from "@/lib/db";
 
 const START_ISO = "2026-01-01";
+const DASH_TZ = "America/New_York";
 
 type WorkoutCol = { kind: "workout"; slug: string; label: string };
 type MatrixCol = { kind: "date" } | { kind: "spacer" } | WorkoutCol;
@@ -56,9 +57,22 @@ function utcDateFromISO(iso: string) {
   return new Date(Date.UTC(y, (m ?? 1) - 1, da ?? 1));
 }
 
-function todayUTC() {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+function isoTodayInTZ(tz: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function todayInTZDate(tz: string) {
+  // represent the calendar day as a Date at UTC midnight for that YYYY-MM-DD
+  return utcDateFromISO(isoTodayInTZ(tz));
 }
 
 function addDaysUTC(d: Date, days: number) {
@@ -180,7 +194,7 @@ export default function DashboardPage() {
   }, [pairs]);
 
   const dayList = useMemo(() => {
-    const end = todayUTC();
+    const end = todayInTZDate(DASH_TZ);
     const start = utcDateFromISO(START_ISO);
     const out: string[] = [];
     for (let d = end; d.getTime() >= start.getTime(); d = addDaysUTC(d, -1)) out.push(isoFromUTCDate(d));
@@ -188,7 +202,7 @@ export default function DashboardPage() {
   }, []);
 
   const weekRows = useMemo(() => {
-    const end = todayUTC();
+    const end = todayInTZDate(DASH_TZ);
     const start = utcDateFromISO(START_ISO);
 
     const thisMon = mondayOfUTC(end);
@@ -203,7 +217,7 @@ export default function DashboardPage() {
     return rows;
   }, []);
 
-  const todayISO = isoFromUTCDate(todayUTC());
+  const todayISO = isoTodayInTZ(DASH_TZ);
 
   const MatrixCard = (
     <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -212,7 +226,7 @@ export default function DashboardPage() {
           {MATRIX_COLS.map((c, i) => {
             if (c.kind === "date") {
               return (
-                <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
+                <div key="date" className="h-[22px] px-1 flex items-center justify-center text-[11px] text-white/70">
                   Date
                 </div>
               );
@@ -228,11 +242,19 @@ export default function DashboardPage() {
 
         <div className="mt-1">
           {dayList.map((iso) => (
-            <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
+            <div
+              key={iso}
+              className={[
+                "grid gap-0",
+                // add a subtle week break above Mondays (Mon follows Sun), e.g. between 1/4 and 1/5
+                utcDateFromISO(iso).getUTCDay() === 0 && iso !== dayList[0] ? "mt-2" : "mt-0",
+              ].join(" ")}
+              style={{ gridTemplateColumns: matrixCols }}
+            >
               {MATRIX_COLS.map((c, i) => {
                 if (c.kind === "date") {
                   return (
-                    <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
+                    <div key={`d-${iso}`} className="h-[22px] px-1 flex items-center justify-center text-[11px] text-white/70">
                       {fmtMD(iso)}
                     </div>
                   );
@@ -267,7 +289,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      <div className="mt-1 space-y-0">
+      <div className="mt-1 space-y-1">
         {weekRows.map((row, idx) => (
           <div key={idx} className="grid grid-cols-7 gap-0">
             {row.map((iso) => {
