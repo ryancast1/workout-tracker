@@ -193,6 +193,22 @@ export default function DashboardPage() {
     return s;
   }, [pairs]);
 
+  const dayWorkoutCount = useMemo(() => {
+    // key: YYYY-MM-DD -> # of logged workout cards that day
+    const m = new Map<string, number>();
+    const seen = new Set<string>(); // guard against accidental duplicates
+
+    for (const p of pairs) {
+      const k = `${p.performed_on}|${p.workout_slug}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+
+      m.set(p.performed_on, (m.get(p.performed_on) ?? 0) + 1);
+    }
+
+    return m;
+  }, [pairs]);
+
   const dayList = useMemo(() => {
     const end = todayInTZDate(DASH_TZ);
     const start = utcDateFromISO(START_ISO);
@@ -281,17 +297,25 @@ export default function DashboardPage() {
 
   const AnyWorkoutCard = (
     <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4">
-      <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
+      <div
+        className="mt-2 grid gap-0 text-[11px] text-white/60"
+        style={{ gridTemplateColumns: "repeat(7, 1fr) 28px" }}
+      >
         {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
           <div key={`${d}-${i}`} className="text-center py-1">
             {d}
           </div>
         ))}
+        <div />
       </div>
 
       <div className="mt-1 space-y-1">
         {weekRows.map((row, idx) => (
-          <div key={idx} className="grid grid-cols-7 gap-0">
+          <div
+            key={idx}
+            className="grid gap-0"
+            style={{ gridTemplateColumns: "repeat(7, 1fr) 28px" }}
+          >
             {row.map((iso) => {
               const isBeforeStart = iso < START_ISO;
               const isAfterToday = iso > todayISO;
@@ -320,6 +344,18 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+            {(() => {
+              const weekCount = row.reduce((sum, iso) => {
+                if (iso < START_ISO || iso > todayISO) return sum;
+                return sum + (dayWorkoutCount.get(iso) ?? 0);
+              }, 0);
+
+              return (
+                <div className="h-8 flex items-center justify-center text-[11px] text-white/70">
+                  {weekCount}
+                </div>
+              );
+            })()}
           </div>
         ))}
       </div>
