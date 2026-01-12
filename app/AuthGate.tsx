@@ -47,7 +47,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
     }
 
     setPhase("code");
-    alert("Check your email for the 6-digit code.");
+    alert("Check your email for the 8-digit code.");
   }
 
   async function verifyCode() {
@@ -108,7 +108,7 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
                 <input
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, ""))}
-                  placeholder="6-digit code"
+                  placeholder="8-digit code"
                   className="h-14 w-full rounded-xl border border-white/10 bg-black/30 px-4 text-center text-base outline-none focus:border-white/20 tracking-widest"
                   inputMode="numeric"
                 />
