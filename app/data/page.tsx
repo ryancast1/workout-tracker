@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   deleteSession,
+  listAllSessions,
   listRecentSessions,
   updateSession,
   WorkoutSessionRow,
 } from "@/lib/db";
+
 
 const WORKOUTS: { slug: string; label: string }[] = [
   { slug: "push-ups", label: "Push Ups" },
@@ -105,6 +106,7 @@ export default function DataPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -235,6 +237,65 @@ export default function DataPage() {
     }
   }
 
+function csvEscape(v: unknown) {
+  if (v == null) return "";
+  const s = String(v);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+async function exportCsv() {
+  setExporting(true);
+  try {
+    const all = await listAllSessions(); // FULL table, not just last 100
+
+    // Stable column order (no IDs)
+    const headers = [
+      "performed_on",
+      "workout_slug",
+      "workout_name",
+      "weight",
+      "set1_reps",
+      "set2_reps",
+      "set3_reps",
+      "set4_reps",
+      "set5_reps",
+      "set6_reps",
+      "compact",
+      "notes",
+      "created_at",
+    ];
+
+    const lines: string[] = [];
+    lines.push(headers.join(","));
+
+    for (const r of all) {
+      const row = headers.map((h) => csvEscape((r as any)[h]));
+      lines.push(row.join(","));
+    }
+
+    const csv = lines.join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `workout-sessions-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
+  } catch (e: any) {
+    alert(`Export failed: ${e?.message ?? e}`);
+  } finally {
+    setExporting(false);
+  }
+}
+
+
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-black to-zinc-950 px-5 py-8 text-white">
       <div className="mx-auto w-full max-w-md">
@@ -244,14 +305,15 @@ export default function DataPage() {
           </h1>
         </div>
 
-        <div className="mt-3 flex justify-center">
-          <Link
-            href="/"
-            className="text-sm text-white/70 underline underline-offset-4"
-          >
-            Back to workouts
-          </Link>
-        </div>
+      <div className="mt-3 flex items-center justify-center">
+        <button
+          onClick={exportCsv}
+          disabled={exporting || loading}
+          className="text-sm text-white/70 underline underline-offset-4 disabled:opacity-50"
+        >
+          {exporting ? "Exporting…" : "Export CSV"}
+        </button>
+      </div>
 
         {loading ? (
           <div className="mt-8 text-center text-white/60">Loading…</div>

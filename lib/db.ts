@@ -105,6 +105,33 @@ export async function listSessionsSince(startISO: string) {
   if (error) throw error;
   return (data ?? []) as { performed_on: string; workout_slug: string }[];
 }
+// Fetch ALL sessions for the current user (paged)
+export async function listAllSessions(batchSize: number = 1000): Promise<WorkoutSessionRow[]> {
+  const out: WorkoutSessionRow[] = [];
+  let from = 0;
+
+  while (true) {
+    // IMPORTANT: use the SAME table name + ordering as listRecentSessions
+    const { data, error } = await supabase
+      .from("workout_sessions")
+      .select("*")
+.order("performed_on", { ascending: false })
+.order("id", { ascending: false })
+.range(from, from + batchSize - 1);
+
+    if (error) throw error;
+
+    const chunk = (data ?? []) as WorkoutSessionRow[];
+    if (chunk.length === 0) break;
+
+    out.push(...chunk);
+    if (chunk.length < batchSize) break;
+
+    from += batchSize;
+  }
+
+  return out;
+}
 
 export async function listWeightSeries(slug: string, startISO: string) {
   const { data, error } = await supabase
