@@ -12,14 +12,21 @@ import {
 const WORKOUTS: { slug: string; label: string }[] = [
   { slug: "push-ups", label: "Push Ups" },
   { slug: "bicep-curls", label: "Bicep Curls" },
+
   { slug: "shoulder-press", label: "Shoulder Press" },
   { slug: "chest-press", label: "Chest Press" },
+
+  { slug: "lateral-raise", label: "Lateral Raise" },
+  { slug: "tricep-extension", label: "Tricep Extension" },
+
   { slug: "lat-pulldown", label: "Lat Pulldown" },
   { slug: "row", label: "Row" },
+
+  { slug: "rear-delt-fly", label: "Rear Delt Fly" },
+  { slug: "other", label: "Other" },
+
   { slug: "leg-press", label: "Leg Press" },
   { slug: "leg-curl", label: "Leg Curl" },
-  { slug: "lateral-raise", label: "Lateral Raise" },
-  { slug: "other", label: "Other" },
 ];
 
 function labelForSlug(slug: string) {
