@@ -35,6 +35,18 @@ const MATRIX_COLS: MatrixCol[] = [
 const WORKOUTS = MATRIX_COLS.filter((c): c is WorkoutCol => c.kind === "workout");
 const WEIGHT_WORKOUTS = WORKOUTS.filter((w) => w.slug !== "push-ups");
 
+const GROUPS: { id: string; items: WorkoutCol[] }[] = [
+  { id: "g0", items: WORKOUTS.filter((w) => ["push-ups", "bicep-curls"].includes(w.slug)) },
+  {
+    id: "g1",
+    items: WORKOUTS.filter((w) =>
+      ["shoulder-press", "chest-press", "lateral-raise", "triceps-press"].includes(w.slug)
+    ),
+  },
+  { id: "g2", items: WORKOUTS.filter((w) => ["lat-pulldown", "row", "rear-delt-fly"].includes(w.slug)) },
+  { id: "g3", items: WORKOUTS.filter((w) => ["leg-press", "leg-curl"].includes(w.slug)) },
+];
+
 function isoFromUTCDate(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -91,13 +103,13 @@ export default function DashboardPage() {
   const [weightSeries, setWeightSeries] = useState<{ performed_on: string; weight: number }[]>([]);
   const [weightLoading, setWeightLoading] = useState(false);
 
-  // Matrix sizing (tuned for iPhone width)
-  const DATE_COL = 42; // narrower date column
-  const CELL = 23; // slightly larger cells
-  const SPACER = 8; // blank spacing between workout-day groupings
-  const matrixCols = MATRIX_COLS
-    .map((c) => (c.kind === "date" ? `${DATE_COL}px` : c.kind === "spacer" ? `${SPACER}px` : `${CELL}px`))
-    .join(" ");
+  // Matrix sizing
+  const DATE_COL = 42;
+  const CELL = 23;
+  const SPACER = 8;
+  const matrixCols = MATRIX_COLS.map((c) =>
+    c.kind === "date" ? `${DATE_COL}px` : c.kind === "spacer" ? `${SPACER}px` : `${CELL}px`
+  ).join(" ");
 
   useEffect(() => {
     (async () => {
@@ -132,7 +144,6 @@ export default function DashboardPage() {
         );
         setLastBySlug(Object.fromEntries(entries));
       } catch (e: any) {
-        // non-fatal: dashboard can still render without this
         console.error("Last-session list failed:", e);
       }
     })();
@@ -172,10 +183,8 @@ export default function DashboardPage() {
     const end = todayUTC();
     const start = utcDateFromISO(START_ISO);
     const out: string[] = [];
-    for (let d = end; d.getTime() >= start.getTime(); d = addDaysUTC(d, -1)) {
-      out.push(isoFromUTCDate(d));
-    }
-    return out; // today -> start
+    for (let d = end; d.getTime() >= start.getTime(); d = addDaysUTC(d, -1)) out.push(isoFromUTCDate(d));
+    return out;
   }, []);
 
   const weekRows = useMemo(() => {
@@ -191,10 +200,162 @@ export default function DashboardPage() {
       for (let i = 0; i < 7; i++) row.push(isoFromUTCDate(addDaysUTC(wk, i)));
       rows.push(row);
     }
-    return rows; // current week -> back
+    return rows;
   }, []);
 
   const todayISO = isoFromUTCDate(todayUTC());
+
+  const MatrixCard = (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-3">
+      <div className="mt-2">
+        <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
+          {MATRIX_COLS.map((c, i) => {
+            if (c.kind === "date") {
+              return (
+                <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
+                  Date
+                </div>
+              );
+            }
+            if (c.kind === "spacer") return <div key={`sp-h-${i}`} className="py-2" />;
+            return (
+              <div key={c.slug} className="py-2 text-[11px] text-white/70 text-center" title={c.slug}>
+                {c.label}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-1">
+          {dayList.map((iso) => (
+            <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
+              {MATRIX_COLS.map((c, i) => {
+                if (c.kind === "date") {
+                  return (
+                    <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
+                      {fmtMD(iso)}
+                    </div>
+                  );
+                }
+                if (c.kind === "spacer") return <div key={`sp-${iso}-${i}`} className="h-[22px]" />;
+
+                const filled = doneSet.has(`${iso}|${c.slug}`);
+                return (
+                  <div
+                    key={`${iso}-${c.slug}`}
+                    className={[
+                      "h-[22px] border rounded-sm",
+                      filled ? "bg-emerald-500/80 border-emerald-400/60" : "bg-white/5 border-white/10",
+                    ].join(" ")}
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+
+  const AnyWorkoutCard = (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
+        {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => (
+          <div key={`${d}-${i}`} className="text-center py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-1 space-y-0">
+        {weekRows.map((row, idx) => (
+          <div key={idx} className="grid grid-cols-7 gap-0">
+            {row.map((iso) => {
+              const isBeforeStart = iso < START_ISO;
+              const isAfterToday = iso > todayISO;
+              const filled = anyDaySet.has(iso);
+
+              const cls =
+                isBeforeStart || isAfterToday
+                  ? "bg-transparent border-white/5"
+                  : filled
+                  ? "bg-emerald-500/80 border-emerald-400/60"
+                  : "bg-white/5 border-white/10";
+
+              const dayNum = Number(iso.slice(8, 10));
+              const showNum = !isBeforeStart && !isAfterToday;
+
+              return (
+                <div
+                  key={iso}
+                  className={[
+                    "h-8 border rounded-sm flex items-center justify-center text-[10px]",
+                    cls,
+                    filled ? "text-black/80" : "text-white/35",
+                  ].join(" ")}
+                >
+                  {showNum ? dayNum : ""}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+
+  const WeightCard = (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div className="mt-1">
+        <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
+        <select
+          value={weightSlug}
+          onChange={(e) => setWeightSlug(e.target.value)}
+          className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
+        >
+          {WEIGHT_WORKOUTS.map((w) => (
+            <option key={w.slug} value={w.slug}>
+              {w.label} — {titleFromSlug(w.slug)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-4">
+        {weightLoading ? (
+          <div className="text-center text-white/60 text-sm py-8">Loading…</div>
+        ) : weightSeries.length < 2 ? (
+          <div className="text-center text-white/60 text-sm py-8">Not enough data yet.</div>
+        ) : (
+          <WeightLineChart data={weightSeries} />
+        )}
+      </div>
+    </section>
+  );
+
+  const LastCardItem = (w: WorkoutCol, keyPrefix: string) => {
+    const last = lastBySlug[w.slug] ?? null;
+    return (
+      <div key={`${keyPrefix}-${w.slug}`} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-sm text-white/85 truncate">
+              <span className="text-white/60 mr-2">{w.label}</span>
+              <span className="font-semibold">{titleFromSlug(w.slug)}</span>
+            </div>
+          </div>
+
+          <div className="shrink-0 text-xs text-white/55">{last?.performed_on ? fmtMD(last.performed_on) : "—"}</div>
+        </div>
+
+        <div className="mt-1 text-sm">
+          <span className="text-white/80 font-semibold">{last?.compact ?? "—"}</span>
+        </div>
+
+        {last?.notes ? <div className="mt-1 text-xs text-white/55 whitespace-pre-wrap">{last.notes}</div> : null}
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen md:h-screen md:overflow-hidden bg-gradient-to-b from-black to-zinc-950 px-4 py-8 text-white">
@@ -205,188 +366,47 @@ export default function DashboardPage() {
           <div className="mt-8 text-center text-white/60">Loading…</div>
         ) : (
           <div className="mt-6 md:flex-1 md:overflow-hidden">
-            <div className="space-y-6 md:space-y-0 md:h-full md:grid md:grid-cols-[380px_1fr] md:gap-6 lg:grid-cols-[410px_1fr]">
-              {/* LEFT COLUMN (scrolls on desktop): consistency charts */}
-              <div className="space-y-6 md:h-full md:overflow-y-auto md:pr-2">
-                {/* Card 1: matrix */}
-                <section className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                  <div className="mt-2">
-                    <div className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
-                      {MATRIX_COLS.map((c, i) => {
-                        if (c.kind === "date") {
-                          return (
-                            <div key="date" className="px-1 py-2 text-[11px] text-white/70 text-center">
-                              Date
-                            </div>
-                          );
-                        }
-                        if (c.kind === "spacer") {
-                          return <div key={`sp-h-${i}`} className="py-2" />;
-                        }
-                        return (
-                          <div key={c.slug} className="py-2 text-[11px] text-white/70 text-center" title={c.slug}>
-                            {c.label}
-                          </div>
-                        );
-                      })}
+            {/* MOBILE (keep old stacking, but add group spacers in the last list) */}
+            <div className="space-y-6 md:hidden">
+              {MatrixCard}
+              {AnyWorkoutCard}
+              {WeightCard}
+
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="space-y-4">
+                  {GROUPS.map((g, gi) => (
+                    <div key={g.id}>
+                      {gi > 0 ? <div className="h-3" /> : null}
+                      <div className="space-y-3">{g.items.map((w) => LastCardItem(w, `m-${g.id}`))}</div>
                     </div>
+                  ))}
+                </div>
+              </section>
+            </div>
 
-                    {/* rows */}
-                    <div className="mt-1">
-                      {dayList.map((iso) => (
-                        <div key={iso} className="grid gap-0" style={{ gridTemplateColumns: matrixCols }}>
-                          {MATRIX_COLS.map((c, i) => {
-                            if (c.kind === "date") {
-                              return (
-                                <div key={`d-${iso}`} className="px-1 py-[6px] text-[11px] text-white/70 text-center">
-                                  {fmtMD(iso)}
-                                </div>
-                              );
-                            }
-
-                            if (c.kind === "spacer") {
-                              return <div key={`sp-${iso}-${i}`} className="h-[22px]" />;
-                            }
-
-                            const filled = doneSet.has(`${iso}|${c.slug}`);
-                            return (
-                              <div
-                                key={`${iso}-${c.slug}`}
-                                className={[
-                                  "h-[22px] border rounded-sm",
-                                  filled ? "bg-emerald-500/80 border-emerald-400/60" : "bg-white/5 border-white/10",
-                                ].join(" ")}
-                              />
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                {/* Card 2: calendar grid */}
-                <section className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  {/* weekday header */}
-                  <div className="mt-2 grid grid-cols-7 gap-0 text-[11px] text-white/60">
-                    {[
-                      "M",
-                      "T",
-                      "W",
-                      "T",
-                      "F",
-                      "S",
-                      "S",
-                    ].map((d, i) => (
-                      <div key={`${d}-${i}`} className="text-center py-1">
-                        {d}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-1 space-y-0">
-                    {weekRows.map((row, idx) => (
-                      <div key={idx} className="grid grid-cols-7 gap-0">
-                        {row.map((iso) => {
-                          const isBeforeStart = iso < START_ISO;
-                          const isAfterToday = iso > todayISO;
-                          const filled = anyDaySet.has(iso);
-
-                          const cls =
-                            isBeforeStart || isAfterToday
-                              ? "bg-transparent border-white/5"
-                              : filled
-                              ? "bg-emerald-500/80 border-emerald-400/60"
-                              : "bg-white/5 border-white/10";
-
-                          const dayNum = Number(iso.slice(8, 10));
-                          const showNum = !isBeforeStart && !isAfterToday;
-
-                          return (
-                            <div
-                              key={iso}
-                              className={[
-                                "h-8 border rounded-sm flex items-center justify-center text-[10px]",
-                                cls,
-                                filled ? "text-black/80" : "text-white/35",
-                              ].join(" ")}
-                            >
-                              {showNum ? dayNum : ""}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </section>
+            {/* DESKTOP / HORIZONTAL SCREENS */}
+            <div className="hidden md:flex md:flex-col md:h-full md:overflow-hidden">
+              {/* Top row: Matrix | Any workout | Weight */}
+              <div className="grid gap-6 items-start grid-cols-[minmax(380px,460px)_minmax(280px,340px)_minmax(420px,520px)]">
+                {MatrixCard}
+                {AnyWorkoutCard}
+                {WeightCard}
               </div>
 
-              {/* RIGHT COLUMN (fixed on desktop): chart on top, last-sessions list fills bottom */}
-              <div className="md:h-full md:flex md:flex-col md:gap-6 md:overflow-hidden">
-                {/* Card: weight chart */}
-                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 md:shrink-0">
-                  <div className="mt-2">
-                    <div className="mt-3">
-                      <div className="mb-1 text-xs text-white/60 text-center">Exercise</div>
-                      <select
-                        value={weightSlug}
-                        onChange={(e) => setWeightSlug(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-white/10 bg-black/40 px-3 text-white"
-                      >
-                        {WEIGHT_WORKOUTS.map((w) => (
-                          <option key={w.slug} value={w.slug}>
-                            {w.label} — {titleFromSlug(w.slug)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    {weightLoading ? (
-                      <div className="text-center text-white/60 text-sm py-8">Loading…</div>
-                    ) : weightSeries.length < 2 ? (
-                      <div className="text-center text-white/60 text-sm py-8">Not enough data yet.</div>
-                    ) : (
-                      <WeightLineChart data={weightSeries} />
-                    )}
-                  </div>
-                </section>
-
-                {/* Card: last session for each workout */}
-                <section className="rounded-2xl border border-white/10 bg-white/5 p-4 md:flex-1 md:min-h-0 md:overflow-hidden">
-                  <div className="md:h-full md:overflow-y-auto md:pr-2">
-                    <div className="space-y-3">
-                      {WORKOUTS.map((w) => {
-                        const last = lastBySlug[w.slug] ?? null;
-                        return (
-                          <div key={`last-${w.slug}`} className="rounded-xl border border-white/10 bg-black/25 px-3 py-2">
-                            <div className="flex items-baseline justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="text-sm text-white/85 truncate">
-                                  <span className="text-white/60 mr-2">{w.label}</span>
-                                  <span className="font-semibold">{titleFromSlug(w.slug)}</span>
-                                </div>
-                              </div>
-
-                              <div className="shrink-0 text-xs text-white/55">
-                                {last?.performed_on ? fmtMD(last.performed_on) : "—"}
-                              </div>
-                            </div>
-
-                            <div className="mt-1 text-sm">
-                              <span className="text-white/80 font-semibold">{last?.compact ?? "—"}</span>
-                            </div>
-
-                            {last?.notes ? (
-                              <div className="mt-1 text-xs text-white/55 whitespace-pre-wrap">{last.notes}</div>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </section>
+              {/* Bottom half: 4 independent scroll panes (one per grouping) */}
+              <div className="mt-6 flex-1 overflow-hidden">
+                <div className="h-full grid grid-cols-4 gap-6">
+                  {GROUPS.map((g) => (
+                    <section
+                      key={g.id}
+                      className="rounded-2xl border border-white/10 bg-white/5 p-4 overflow-hidden flex flex-col"
+                    >
+                      <div className="flex-1 overflow-y-auto pr-2">
+                        <div className="space-y-3">{g.items.map((w) => LastCardItem(w, `d-${g.id}`))}</div>
+                      </div>
+                    </section>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
