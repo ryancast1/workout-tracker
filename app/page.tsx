@@ -13,7 +13,7 @@ const WORKOUT_GROUPS = [
     { label: "Chest Press", slug: "chest-press" },
 
     { label: "Lateral Raise", slug: "lateral-raise" },
-    { label: "Triceps Press", slug: "triceps-press" },
+    { label: "Tricep Extension", slug: "tricep-extension" },
   ],
 
   // Day B
